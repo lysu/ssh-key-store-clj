@@ -13,6 +13,6 @@ It's a first version and next step will add support for adding key on GUI, and b
 
 ## License
 
-Copyright © 2012 FIXME
+Copyright © 2012 lysu
 
 Distributed under the Eclipse Public License, the same as Clojure.
