@@ -1,10 +1,15 @@
 # ssh-key-store-clj
 
-A Clojure library designed to ... well, that part is up to you.
+a SSH key manager tool, give a short way to switch between different rsa_id/rsa_id.pub version.
+
+writen in clojure and use seesaw as GUI render
 
 ## Usage
 
-FIXME
+use lein run -m ssh-key-store-clj.core to run and test.
+
+It's a first version and next step will add support for adding key on GUI, and better activing experience.
+
 
 ## License
 
