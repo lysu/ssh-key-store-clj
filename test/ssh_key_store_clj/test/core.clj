@@ -1,6 +1,3 @@
 (ns ssh-key-store-clj.test.core
-  (:use [clojure.test]))
-
-(deftest a-test
-  (testing "test for test")
-  (is (= 0 0)))
+  (:use [clojure.test]
+        [ssh-key-store-clj.core]))

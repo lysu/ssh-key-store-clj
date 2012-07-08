@@ -40,26 +40,26 @@
                  :width 200
                  :height 200)]
     (invoke-later
-      (native!)
-      (-> f pack! show!)
-      (let [cfg (fs/init-key-store key-store-dir)
-            lb-keys (listbox :model
-                             (map name (keys (:key-files cfg))))
-            btn-active (button :text "active")]
-        (display-in f (border-panel
-                       :center (scrollable lb-keys)
-                       :south (horizontal-panel
-                               :items [btn-active])))
-        (listen btn-active :action
-                (fn [e]
-                  (let [selected-key (keyword (selection lb-keys))
-                        selected-filename (str key-store-dir "/"
-                                               (-> cfg
-                                                   :key-files
-                                                   selected-key
-                                                   :path))]
-                    (active-key-file selected-filename)
-                    (alert e "actived!!"))))))))
+     (native!)
+     (-> f pack! show!)
+     (let [cfg (fs/init-key-store key-store-dir)
+           lb-keys (listbox :model
+                            (map name (keys (:key-files cfg))))
+           btn-active (button :text "active")]
+       (display-in f (border-panel
+                      :center (scrollable lb-keys)
+                      :south (horizontal-panel
+                              :items [btn-active])))
+       (listen btn-active :action
+               (fn [e]
+                 (let [selected-key (keyword (selection lb-keys))
+                       selected-filename (str key-store-dir "/"
+                                              (-> cfg
+                                                  :key-files
+                                                  selected-key
+                                                  :path))]
+                   (active-key-file selected-filename)
+                   (alert e "actived!!"))))))))
 
 
 

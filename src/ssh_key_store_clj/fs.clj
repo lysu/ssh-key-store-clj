@@ -12,10 +12,9 @@
 (defn- destruct-entry 
   "deconstruct info to fs suitable format"
   [output entry]
-  (conj output (join "," (seq
-                          (first entry)
+  (conj output (join "," [(-> entry first name)
                           (-> entry second :path)
-                          (-> entry second :status)))))
+                          (-> entry second :status)])))
 
 (defn copy-key-file 
   "copy key-file to active path"
@@ -40,8 +39,14 @@
 
 (defn sync-index-store 
   "sync key-index info"
-  [store-dir key-files-info]
-  (let [index-file (file store-dir "key-index.dat")]
+  [key-files-info]
+  (let [index-file (file (:root-dir key-files-info) "key-index.dat")]
     (with-open [w (writer index-file :append true)]
-      (.write w (join "\\n" (reduce destruct-entry [] key-files-info))))))
+      (.write w
+              (join "\\n"
+                    (reduce destruct-entry [] (:key-files key-files-info)))))))
 
+(defn add-new-key
+  "add new key to store"
+  [files-info new-key new-file-path]
+  (assoc-in files-info [:key-files new-key] {:path new-file-path :status 0}))
