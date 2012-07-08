@@ -1,8 +1,8 @@
 (ns ssh-key-store-clj.fs
   (:use [clojure.java.io :only (file copy reader writer)]
         [clojure.string :only (join split)])
-  (:import java.io.File
-           java.lang.System))
+  (:import java.io.File)
+  (:require [ssh-key-store-clj.constant :as constant]))
 
 (defn- construct-entry 
   "construct info from one line"
@@ -41,10 +41,9 @@
 (defn sync-index-store 
   "sync key-index info"
   [key-files-info]
-  (let [index-file (file (:root-dir key-files-info) "key-index.dat")
-        sys-separator (java.lang.System/getProperty "line.separator")]
+  (let [index-file (file (:root-dir key-files-info) "key-index.dat")]
     (with-open [w (writer index-file :append false)]
-      (let [new-content (join sys-separator
+      (let [new-content (join constant/sys-separator
                               (reduce destruct-entry [] (:key-files key-files-info)))]
         (.write w new-content)))))
 
