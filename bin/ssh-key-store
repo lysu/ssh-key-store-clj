@@ -1,0 +1,180 @@
+#!/bin/bash
+#Clojure-ssh-key-store script.
+#Modified from leiningen:https://raw.github.com/technomancy/leiningen/preview/bin/lein
+#License: Eclipse Public License,same as leiningen and clojure.
+
+export SSH_STORE_VERSION="0.1.0-SNAPSHOT"
+
+case $SSH_STORE_VERSION in
+    *SNAPSHOT) SNAPSHOT="YES" ;;
+    *) SNAPSHOT="NO" ;;
+esac
+
+if [ `id -u` -eq 0 ] && [ "$SSH_STORE_ROOT" = "" ]; then
+    echo "WARNING: You're currently running as root; probably by accident."
+    echo "Press control-C to abort or Enter to continue as root."
+    echo "Set SSH_STORE_ROOT to disable this warning."
+    read _
+fi
+
+NOT_FOUND=1
+ORIGINAL_PWD="$PWD"
+while [ ! -r "$PWD/ssh-key-store-clj.clj" ] && [ "$PWD" != "/" ] && [ $NOT_FOUND -ne 0 ]
+do
+    cd ..
+    if [ "$(dirname "$PWD")" = "/" ]; then
+        NOT_FOUND=0
+        cd "$ORIGINAL_PWD"
+    fi
+done
+
+export SSH_STORE_HOME=${SSH_STORE_HOME:-"$HOME/.ssh-store"}
+
+if [ "$OSTYPE" = "cygwin" ]; then
+    export SSH_STORE_HOME=`cygpath -w $SSH_STORE_HOME`
+fi
+
+SSH_STORE_JAR="$SSH_STORE_HOME/self-installs/ssh-key-store-clj-$SSH_STORE_VERSION-standalone.jar"
+
+# normalize $0 on certain BSDs
+if [ "$(dirname "$0")" = "." ]; then
+    SCRIPT="$(which $(basename "$0"))"
+else
+    SCRIPT="$0"
+fi
+
+# resolve symlinks to the script itself portably
+while [ -h "$SCRIPT" ] ; do
+    ls=`ls -ld "$SCRIPT"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+        SCRIPT="$link"
+    else
+        SCRIPT="$(dirname "$SCRIPT"$)/$link"
+    fi
+done
+
+BIN_DIR="$(dirname "$SCRIPT")"
+
+if [ -r "$BIN_DIR/../src/ssh_key_store_clj/main.clj" ]; then
+    # Running from source checkout
+    SSH_STORE_DIR="$(dirname "$BIN_DIR")"
+    SSH_STORE_LIBS="$(find -H "$SSH_STORE_DIR/lib" -mindepth 1 -maxdepth 1 -print0 2> /dev/null | tr \\0 \:)"
+    CLASSPATH="$CLASSPATH:$SSH_STORE_LIBS:$SSH_STORE_DIR/src:$SSH_STORE_DIR/classes:$SSH_STORE_DIR/resources:$SSH_STORE_JAR"
+
+    if [ "$SSH_STORE_LIBS" = "" -a "$1" != "self-install" -a ! -r "$SSH_STORE_JAR" ]; then
+        echo "SSH_STORE is missing its dependencies. Please see \"Building\" in the README."
+        exit 1
+    fi
+else
+    # Not running from a checkout
+    CLASSPATH="$CLASSPATH:$SSH_STORE_JAR"
+
+    if [ ! -r "$SSH_STORE_JAR" -a "$1" != "self-install" ]; then
+        "$0" self-install
+    fi
+fi
+
+HTTP_CLIENT=${HTTP_CLIENT:-"wget -O"}
+if type -p curl >/dev/null 2>&1; then
+    if [ "$https_proxy" != "" ]; then
+        CURL_PROXY="-x $https_proxy"
+    fi
+    HTTP_CLIENT="curl $CURL_PROXY -f -L -o"
+fi
+
+export JAVA_CMD=${JAVA_CMD:-"java"}
+export SSH_STORE_JAVA_CMD=${SSH_STORE_JAVA_CMD:-$JAVA_CMD}
+
+# Support $JAVA_OPTS for backwards-compatibility.
+export JVM_OPTS="${JVM_OPTS:-"$JAVA_OPTS"}"
+
+# TODO: investigate http://skife.org/java/unix/2011/06/20/really_executable_jars.html
+# If you're packaging this for a package manager (.deb, homebrew, etc)
+# you need to remove the self-install and upgrade functionality or see lein-pkg.
+if [ "$1" = "self-install" ]; then
+    if [ -r "$SSH_STORE_JAR" ]; then
+      echo "The self-install jar already exists at $SSH_STORE_JAR."
+      echo "If you wish to re-download, delete it and rerun \"$0 self-install\"."
+      exit 1
+    fi
+    echo "Downloading SSH_STORE now..."
+    SSH_STORE_DIR=`dirname "$SSH_STORE_JAR"`
+    mkdir -p "$SSH_STORE_DIR"
+    SSH_STORE_URL="https://github.com/downloads/lysu/ssh-key-store-clj/ssh-key-store-clj-$SSH_STORE_VERSION-standalone.jar"
+    $HTTP_CLIENT "$SSH_STORE_JAR" "$SSH_STORE_URL"
+    if [ $? != 0 ]; then
+        echo "Failed to download $SSH_STORE_URL"
+        echo "If you have an old version of libssl you may not have the correct"
+        echo "certificate authority. Either upgrade or set HTTP_CLIENT to insecure:"
+        echo "  export HTTP_CLIENT=\"wget --no-check-certificate -O\" # or"
+        echo "  export HTTP_CLIENT=\"curl --insecure -f -L -o"
+        if [ $SNAPSHOT = "YES" ]; then
+            echo "If you have Maven installed, you can do"
+            echo "mvn dependency:copy-dependencies; mv target/dependency lib"
+            echo "See README.md for further SNAPSHOT build instructions."
+        fi
+        rm $SSH_STORE_JAR 2> /dev/null
+        exit 1
+    fi
+elif [ "$1" = "upgrade" ]; then
+    if [ "$SSH_STORE_DIR" != "" ]; then
+        echo "The upgrade task is not meant to be run from a checkout."
+        exit 1
+    fi
+    if [ $SNAPSHOT = "YES" ]; then
+        echo "The upgrade task is only meant for stable releases."
+        echo "See the \"Hacking\" section of the README."
+        exit 1
+    fi
+    if [ ! -w "$SCRIPT" ]; then
+        echo "You do not have permission to upgrade the installation in $SCRIPT"
+        exit 1
+    else
+        TARGET_VERSION="${2:-"stable"}"
+        echo "The script at $SCRIPT will be upgraded to the latest $TARGET_VERSION version."
+        echo -n "Do you want to continue [Y/n]? "
+        read RESP
+        case "$RESP" in
+            y|Y|"")
+                echo
+                echo "Upgrading..."
+                TARGET="/tmp/ssh-key-$$-upgrade"
+                if ["$OSTYPE" = "cygwin" ]; then
+                    TARGET=`cygpath -w $TARGET`
+                fi
+                SSH_STORE_SCRIPT_URL="https://github.com/lysu/ssh-key-store-clj/raw/$TARGET_VERSION/bin/ssh-key-store"
+                $HTTP_CLIENT "$TARGET" "$SSH_STORE_SCRIPT_URL" \
+                    && mv "$TARGET" "$SCRIPT" \
+                    && chmod +x "$SCRIPT" \
+                    && echo && "$SCRIPT" self-install && echo && echo "Now running" `$SCRIPT version`
+                exit $?;;
+            *)
+                echo "Aborted."
+                exit 1;;
+        esac
+    fi
+else
+    if [ "$OSTYPE" = "cygwin" ]; then
+        # When running on Cygwin, use Windows-style paths for java
+        ORIGINAL_PWD=`cygpath -w "$ORIGINAL_PWD"`
+        CLASSPATH=`cygpath -wp "$CLASSPATH"`
+    fi
+
+    if [ $DEBUG ]; then
+        echo "Classpath: $CLASSPATH"
+    fi
+
+    $SSH_STORE_JAVA_CMD \
+            -client -XX:+TieredCompilation \
+            $SSH_STORE_JVM_OPTS \
+            -Dfile.encoding=UTF-8 \
+            -cp "$CLASSPATH" \
+            clojure.main -m ssh-key-store-clj.main "$@"
+
+    echo "$@"
+
+    EXIT_CODE=$?
+
+    exit $EXIT_CODE
+fi

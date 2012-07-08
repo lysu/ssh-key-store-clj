@@ -5,6 +5,11 @@ task :test do
   sh 'rm target/classes -rf && lein javac && lein test'
 end 
 
+desc "generate standalone jar"
+task :jar => :test do
+  sh 'lein deps && rm *.jar pom.xml target/classes -rf && lein uberjar'
+end
+
 desc "Install in local repository"
 task :install_local => :test do
   sh 'lein deps && rm *.jar pom.xml target/classes -rf && lein jar && lein install'
