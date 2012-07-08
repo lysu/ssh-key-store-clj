@@ -4,4 +4,5 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.3.0"]
-                 [seesaw "1.4.1"]])
+                 [seesaw "1.4.1"]]
+  :dev-dependencies [[lein-autodoc "0.9.0"]])
