@@ -3,7 +3,8 @@
   (:require [ssh-key-store-clj.fs :as fs]
             [ssh-key-store-clj.core :as core]
             [ssh-key-store-clj.view :as view]
-            [ssh-key-store-clj.presenter :as presenter]))
+            [ssh-key-store-clj.presenter :as presenter])
+  (:gen-class))
 
 (defn -main 
   "main entry point for invoke seesaw"
